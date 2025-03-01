@@ -1,0 +1,198 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Godot;
+
+public partial class CaveMeshGenerator : Node3D
+{
+
+    [Export]
+    CaveTestRRT caveTestRRT;
+    public Dictionary<string, CaveBiomeInfoHandler> _caveInfos;
+
+    private bool hasGenerated;
+
+    //values used for testing deformation functionality
+    [Export]
+    Vector3[] HalfCirqueWeightedNormals;
+
+    public override void _Ready()
+    {
+        base._Ready();
+        _caveInfos = new Dictionary<string, CaveBiomeInfoHandler>();
+        // foreach (var child in GetChildren())
+        // {
+        //     if (child is CaveBiomeInfoHandler cbih)
+        //     {
+        //         _caveInfos[cbih.name] = cbih;
+        //     }
+        // }
+        hasGenerated = false;
+    }
+
+    public override void _Process(double delta)
+    {
+        base._Process(delta);
+        if(!hasGenerated)
+        {
+            generate();
+            hasGenerated = true;
+        }
+    }
+
+    public ArrayMesh CreateConvexCylinderMesh(CaveCapsuleInfo cci)
+    {
+        ArrayMesh cylinderArrayMesh = new ArrayMesh();
+        
+        return 
+    }
+
+    public void generate()
+    {
+        float vertexGranularity = .1f;
+        var cci = caveTestRRT._Lcci[caveTestRRT.MainRoomSpawnIntervals[0]+1];
+        CylinderMesh cylinderMesh = new CylinderMesh();
+        float cylinderHeight = cci.Height+cci.Radius*2;
+        cylinderMesh.CapTop = false;
+        cylinderMesh.Height = cylinderHeight;
+        cylinderMesh.TopRadius = cci.Radius;
+        cylinderMesh.BottomRadius = cci.Radius;
+        cylinderMesh.CapBottom = true;
+        cylinderMesh.RadialSegments = (int)(cci.Height/vertexGranularity);
+        cylinderMesh.Rings = (int)(2 * Mathf.Pi * cci.Radius / vertexGranularity);
+        var surface = new SurfaceTool();
+        var data = new MeshDataTool();
+        surface.CreateFrom(cylinderMesh, 0);
+
+        var array_plane = surface.Commit();
+        data.CreateFromSurface(array_plane, 0);
+        
+        //edit mesh here
+
+        array_plane.ClearSurfaces();
+        data.CommitToSurface(array_plane);
+        surface.Begin(Mesh.PrimitiveType.Triangles);
+        surface.CreateFrom(array_plane, 0);
+        surface.GenerateNormals();
+
+         // Get all the vertices from the mesh
+        var vertices = new Godot.Collections.Array<Vector3>();
+        for (int i = 0; i < data.GetVertexCount(); i++)
+        {
+            vertices.Add(data.GetVertex(i));
+        }
+
+        // Create a ConvexPolygonShape3D and set the vertices
+        var convexShape = new ConvexPolygonShape3D();
+        convexShape.SetPoints(vertices.ToArray());
+
+        // Convert ConvexPolygonShape3D to Mesh with inverted faces and normals
+        var renderedMesh = ConvertToMeshWithInvertedNormalsAndFaces(convexShape);
+
+        // // Convert ConvexPolygonShape3D to Mesh
+        // var renderedMesh = ConvertToMesh(convexShape);
+
+        // Create a MeshInstance3D to render the mesh
+        var meshInstanceToRender = new MeshInstance3D();
+        meshInstanceToRender.Mesh = renderedMesh;
+        AddChild(meshInstanceToRender);
+
+        // Optionally, create a CollisionShape3D for physics interaction
+        var collisionShape = new CollisionShape3D();
+        collisionShape.Shape = convexShape;
+        AddChild(collisionShape);
+
+        MeshInstance3D mesh = new MeshInstance3D();
+        mesh.Mesh = surface.Commit();
+        mesh.CreateTrimeshCollision();
+        mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        // mesh.AddToGroup("NavSource")
+        mesh.Position = (cci.StartPosition+cci.EndPosition)/2;
+        AddChild(mesh);//todo add to new? staticbody instead
+        //todo 
+    }
+
+    private Mesh ConvertToMesh(ConvexPolygonShape3D convexShape)
+    {
+        // Create a SurfaceTool to build the mesh from vertices
+        var surfaceTool = new SurfaceTool();
+        surfaceTool.Begin(Mesh.PrimitiveType.Triangles); // We assume the shape is made up of triangles
+
+        // Add the vertices from the ConvexPolygonShape3D into the surface tool
+        foreach (var vertex in convexShape.GetPoints())
+        {
+            surfaceTool.AddVertex(vertex);
+        }
+
+        // Generate normals and the mesh
+        surfaceTool.GenerateNormals();
+        var mesh = surfaceTool.Commit();
+
+        return mesh;
+    }
+
+    // public float CircumferenceVertexSpacing(float circumference, float vertexGranularity)
+    // {
+    //     int circumferenceVertexCount = (int)(circumference/vertexGranularity);
+    //     return circumference/circumferenceVertexCount;
+    // }
+
+    //Todo handle intersections-via radius+distance to line/startPosition/endPosition -make new verts and delete verts/face intersecting?
+    
+    private void ApplyHalfCirqueToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplyCirqueToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplyLayerCakeToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplyShaleCutToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplySlopeToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+        
+    }
+    // Vector3[] caveArrayMesh = caveArrayVertices.ToArray();
+    //
+
+    //alternative/addon? just use: noise.SetTileable(true);
+    private float GetNoiseYWrapped(int x, int y, FastNoiseLite noise)
+    {
+        // var value = noise.GetNoise2D(x, y);
+        //todo resolve circular with options
+        // Set the noise type, seed, frequency, and other properties
+        // noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+        // noise.SetSeed(42);  // You can set a different seed if desired
+        // noise.SetFrequency(0.1f); // Adjust the frequency based on your needs
+
+        
+
+        // Set the texture dimensions (e.g., 256x256)
+        int width = 256;
+        int height = 256;
+
+        // Wrap the coordinates along the X-axis (periodic tiling)
+        float xWrap = (float)(x % width) / width;  // Normalize x within [0, 1]
+        float yWrap = (float)(y % height) / height;  // Normalize y within [0, 1]
+        
+        // Get the noise value based on the wrapped coordinates
+        float noiseValue = noise.GetNoise2D(xWrap, yWrap);
+        
+        // You can scale or adjust the noise value here if needed (e.g., normalize to [0, 1] range)
+        noiseValue = (noiseValue + 1.0f) * 0.5f;  // Normalize to [0, 1]
+        return noiseValue;
+        // Use noiseValue to create the texture, e.g., store it in an array or display it
+    }
+}

@@ -1,0 +1,255 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+
+public partial class CylinderMeshGenerator : Node3D
+{
+    [Export] public int Segments = 32;
+    [Export] public float Height = 2.0f;
+    [Export] public bool CapTop = true;
+    
+    [Export] public float TopRadius = 1.0f;
+    [Export] public float BottomRadius = 1.0f;
+    [Export] public bool CapBottom = true;
+    [Export] public int RadialSegments = 16;
+    [Export] public int Rings = 16;
+
+    [Export] public Node3D attachmentNode;
+    [Export] public Vector3 spawnPosition;
+    private MeshInstance3D meshInstance;
+    private ConvexPolygonShape3D convexShape;
+
+    public override void _Ready()
+    {
+        // CreateCylinderMesh();
+        // CreateCollisionShape();
+    }
+
+    public void SetValuesFromCaveCapsuleInfo(CaveCapsuleInfo cci)
+    {
+        Height = cci.Height;
+        TopRadius = cci.Radius;
+        BottomRadius = cci.Radius;
+        spawnPosition = (cci.StartPosition + cci.EndPosition)/2;
+    }
+
+    public void CreateCylinderMesh(CaveCapsuleInfo cci = null, float vertexGranularity = -1f)
+    {
+        if(cci != null)
+        {
+            SetValuesFromCaveCapsuleInfo(cci);
+        }
+        //Set RadialSegments and Rings if conditions met
+        if(vertexGranularity > 0)
+        {
+            RadialSegments = Mathf.Max((int)(Mathf.Tau*TopRadius/vertexGranularity), (int)(Mathf.Tau*BottomRadius/vertexGranularity));
+            Rings = (int)(Height/vertexGranularity)+1;
+        }
+
+        var mesh = new ArrayMesh();
+
+        // Step 1: Generate the vertices
+        List<Vector3> vertices = new List<Vector3>();
+        List<int> indices = new List<int>();
+        List<Vector3> normals = new List<Vector3>();
+        List<Vector2> uvs = new List<Vector2>();
+
+        int index = 0;
+
+        // Create vertices for the top and bottom circles
+        for (int i = 0; i < Segments; i++)
+        {
+            float angle = (float)i / Segments * Mathf.Tau;
+            float x_top = Mathf.Cos(angle) * TopRadius;
+            float z_top = Mathf.Sin(angle) * TopRadius;
+
+            // Top circle vertices
+            vertices.Add(new Vector3(x_top, Height / 2, z_top));
+            normals.Add(Vector3.Up);
+            uvs.Add(new Vector2((float)i / Segments, 0));
+            indices.Add(index);
+            index++;
+
+            float x_bottom = Mathf.Cos(angle) * BottomRadius;
+            float z_bottom = Mathf.Sin(angle) * BottomRadius;
+
+            // Bottom circle vertices
+            vertices.Add(new Vector3(x_bottom, -Height / 2, z_bottom));
+            normals.Add(Vector3.Down);
+            uvs.Add(new Vector2((float)i / Segments, 1));
+            
+            indices.Add(index);
+            index++;
+        }
+
+        // Step 2: Create the cylinder sides (two triangles per segment)
+        for (int i = 0; i < Segments; i++)
+        {
+            float angle = (float)i / Segments * Mathf.Tau;
+            float unit_x = Mathf.Cos(angle);
+            float unit_z = Mathf.Sin(angle);
+            float ringCountRatio = (float)Height /Rings;
+
+            for(int j = 0; j < Rings; j++)
+            {
+                float radius = Mathf.Lerp(TopRadius, BottomRadius, ringCountRatio);
+                float x = unit_x*radius;
+                float z = unit_z*radius;
+                vertices.Add(new Vector3(x, -Height / 2, z));
+                normals.Add(Vector3.Down);
+                uvs.Add(new Vector2((float)i / Segments, ringCountRatio));
+                indices.Add(index);
+                index++;
+            }
+        }
+
+        // Step 3: Set the arrays in the ArrayMesh
+        var surfaceArray = new Godot.Collections.Array();
+        surfaceArray.Resize((int)Mesh.ArrayType.Max);
+        surfaceArray[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
+        surfaceArray[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+        surfaceArray[(int)Mesh.ArrayType.Normal] = normals.ToArray();
+        surfaceArray[(int)Mesh.ArrayType.Index] = indices.ToArray();
+
+        // var arrMesh = mesh as ArrayMesh;
+        if (mesh != null)
+        {
+            // No blendshapes, lods, or compression used.
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surfaceArray);
+        }
+        // Step 3: Set the arrays in the ArrayMesh
+        // mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, new Godot.Collections.Array()
+        // {
+        //     vertices.ToArray(),
+        //     normals.ToArray(),
+        //     uvs.ToArray()
+        // });
+
+        // Create the MeshInstance3D and assign the generated mesh
+        meshInstance = new MeshInstance3D();
+        meshInstance.Position = spawnPosition;
+        // mesh.CreateTrimeshShape();
+        mesh.CreateConvexShape();
+        meshInstance.Mesh = mesh;
+        Material blueprintShader = ResourceLoader.Load<Material>("res://Procedural Generation/Materials/TerrainMaterial.tres");
+        meshInstance.MaterialOverlay = blueprintShader;
+
+        meshInstance.CreateTrimeshCollision();
+        GD.Print("Created trimesh collision, adding MeshInstance to Scene at Position: ", meshInstance.Position);
+
+        if (attachmentNode == null)
+        {
+            AddChild(meshInstance);
+            GD.Print("WARNING: no attachment Node Found in CylinderMeshGenerator");
+            return;
+        }
+
+        
+        attachmentNode.AddChild(meshInstance);
+    }
+
+    // Function to create the cylinder mesh manually using ArrayMesh
+    // public void CreateCylinderMesh_()
+    // {
+    //     var mesh = new ArrayMesh();
+
+    //     // Step 1: Generate the vertices
+    //     List<Vector3> vertices = new List<Vector3>();
+    //     List<int> indices = new List<int>();
+    //     List<Vector3> normals = new List<Vector3>();
+    //     List<Vector2> uvs = new List<Vector2>();
+
+    //     // Create vertices for the top and bottom circles
+    //     for (int i = 0; i < Segments; i++)
+    //     {
+    //         float angle = (float)i / Segments * Mathf.Tau;
+    //         float x = Mathf.Cos(angle) * Radius;
+    //         float z = Mathf.Sin(angle) * Radius;
+
+    //         // Top circle vertices
+    //         vertices.Add(new Vector3(x, Height / 2, z));
+    //         normals.Add(Vector3.Up);
+    //         uvs.Add(new Vector2((float)i / Segments, 0));
+
+    //         // Bottom circle vertices
+    //         vertices.Add(new Vector3(x, -Height / 2, z));
+    //         normals.Add(Vector3.Down);
+    //         uvs.Add(new Vector2((float)i / Segments, 1));
+    //     }
+
+    //     // Step 2: Create the cylinder sides (two triangles per segment)
+    //     for (int i = 0; i < Segments; i++)
+    //     {
+    //         int next = (i + 1) % Segments;
+
+    //         // Top circle triangle
+    //         indices.Add(i * 2);
+    //         indices.Add(next * 2);
+    //         indices.Add(i * 2 + 1);
+
+    //         // Bottom circle triangle
+    //         indices.Add(i * 2 + 1);
+    //         indices.Add(next * 2);
+    //         indices.Add(next * 2 + 1);
+
+    //         // Create side triangles for the cylinder's sides
+    //         vertices.Add(new Vector3(vertices[i * 2].X, vertices[i * 2].Y, vertices[i * 2].Z)); // top vertex
+    //         vertices.Add(new Vector3(vertices[i * 2 + 1].X, vertices[i * 2 + 1].Y, vertices[i * 2 + 1].Z)); // bottom vertex
+
+    //         indices.Add(i * 2);
+    //         indices.Add(next * 2);
+    //         indices.Add(i * 2 + 1);
+    //     }
+
+    //     // Step 3: Set the arrays in the ArrayMesh
+    //     mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, new Godot.Collections.Array()
+    //     {
+    //         vertices.ToArray(),
+    //         normals.ToArray(),
+    //         uvs.ToArray()
+    //     });
+
+    //     // Create the MeshInstance3D and assign the generated mesh
+    //     meshInstance = new MeshInstance3D();
+    //     meshInstance.Mesh = mesh;
+    //     if (attachmentNode == null)
+    //     {
+    //         AddChild(meshInstance);
+    //         return;
+    //     }
+    //     attachmentNode.AddChild(meshInstance);
+    // }
+
+    // Function to create a ConvexPolygonShape3D as a collision shape
+    // private void CreateCollisionShape()
+    // {
+    //     // Create the collision shape (this won't be an exact match to the mesh, but it approximates the shape)
+    //     convexShape = new ConvexPolygonShape3D();
+
+    //     // Here we are approximating the shape by using the same vertices as the mesh
+    //     List<Vector3> collisionVertices = new List<Vector3>();
+
+    //     for (int i = 0; i < Segments; i++)
+    //     {
+    //         float angle = (float)i / Segments * Mathf.Tau;
+    //         float x = Mathf.Cos(angle) * Radius;
+    //         float z = Mathf.Sin(angle) * Radius;
+
+    //         collisionVertices.Add(new Vector3(x, Height / 2, z)); // Top circle vertex
+    //         collisionVertices.Add(new Vector3(x, -Height / 2, z)); // Bottom circle vertex
+    //     }
+
+    //     // Set the vertices in the collision shape
+    //     convexShape.Points = collisionVertices.ToArray();
+
+    //     // Create the CollisionShape3D and assign the ConvexPolygonShape3D
+    //     var collisionShape = new CollisionShape3D();
+    //     collisionShape.Shape = convexShape;
+    //     if (attachmentNode == null)
+    //     {
+    //         AddChild(collisionShape);
+    //         return;
+    //     }
+    //     attachmentNode.AddChild(collisionShape);
+    // }
+}

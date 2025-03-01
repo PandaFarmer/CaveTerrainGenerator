@@ -1,0 +1,147 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Godot;
+
+public partial class CaveMeshGenerator : Node3D
+{
+
+    [Export]
+    CaveTestRRT caveTestRRT;
+    public Dictionary<string, CaveBiomeInfoHandler> _caveInfos;
+
+    bool hasGenerated;
+
+    public override void _Ready()
+    {
+        base._Ready();
+        _caveInfos = new Dictionary<string, CaveBiomeInfoHandler>();
+        // foreach (var child in GetChildren())
+        // {
+        //     if (child is CaveBiomeInfoHandler cbih)
+        //     {
+        //         _caveInfos[cbih.name] = cbih;
+        //     }
+        // }
+        hasGenerated = false;
+    }
+
+    public override void _Process(double delta)
+    {
+        base._Process(delta);
+        if(!hasGenerated)
+        {
+            (List<Vector3> vertexList,List<Vector3> normalList)  = GenerateCaveVerticesCylindrical(.5f, true, caveTestRRT._Lcci[caveTestRRT.MainRoomSpawnIntervals[0]]);
+            Vector3[] vertices = vertexList.ToArray();
+            hasGenerated = true;
+        }
+    }
+
+    // public float CircumferenceVertexSpacing(float circumference, float vertexGranularity)
+    // {
+    //     int circumferenceVertexCount = (int)(circumference/vertexGranularity);
+    //     return circumference/circumferenceVertexCount;
+    // }
+
+    public ArrayMesh
+
+    //Create a cave modeled off capsule
+    public (List<Vector3>, List<Vector3>) GenerateCaveVerticesCylindrical(float vertexGranularity, bool flatBase, CaveCapsuleInfo cci)
+    {
+        List<Vector3> caveArrayVertices = new List<Vector3>();
+        List<Vector3> caveArrayNormals = new List<Vector3>();
+        List<Vector3> caveArrayUVs = new List<Vector3>();
+        //generate vertices along a cylinder:
+        Vector3 normal = cci.EndPosition - cci.StartPosition;
+        float _height = normal.Length();
+        float circumference = 2 * Mathf.Pi * cci.Radius;
+        int circumferenceVertexCount = (int)(circumference / vertexGranularity);
+
+        // float circumferenceVertexSpacing = CircumferenceVertexSpacing(circumference, vertexGranularity);
+        Transform3D transform3d = Transform3D.Identity;
+        transform3d.LookingAt(normal);
+        for (float height = 0; height <= _height; height += vertexGranularity)
+        {
+            transform3d = transform3d.TranslatedLocal(Vector3.Up * vertexGranularity);
+            for (int vertexAlongCircumference = 0; vertexAlongCircumference < circumferenceVertexCount; vertexAlongCircumference++)
+            {
+                transform3d = transform3d.RotatedLocal(Vector3.Up, 2 * Mathf.Pi / circumferenceVertexCount);
+                caveArrayVertices.Add((transform3d.Basis * Vector3.Forward) * cci.Radius + cci.StartPosition);
+            }
+        }
+        transform3d = transform3d.TranslatedLocal(Vector3.Down * _height);
+
+        for (float innerRadius = vertexGranularity; innerRadius < cci.Radius; innerRadius += vertexGranularity)
+        {
+            float heightAlongSphere = flatBase ? 0 : Mathf.Sqrt(cci.Radius * cci.Radius - innerRadius * innerRadius);
+            circumferenceVertexCount = (int)(2 * Mathf.Pi * innerRadius / vertexGranularity);
+            for (int vertexAlongCircumference = 0; vertexAlongCircumference < circumferenceVertexCount; vertexAlongCircumference++)
+            {
+                transform3d = transform3d.RotatedLocal(Vector3.Up, 2 * Mathf.Pi / circumferenceVertexCount);
+                transform3d = transform3d.TranslatedLocal(Vector3.Up * _height + Vector3.Up*heightAlongSphere);
+                caveArrayVertices.Add((transform3d.Basis * Vector3.Forward) * innerRadius + cci.StartPosition);
+                transform3d = transform3d.TranslatedLocal(Vector3.Down * _height + Vector3.Down*heightAlongSphere*2);
+                caveArrayVertices.Add((transform3d.Basis * Vector3.Forward) * innerRadius + cci.StartPosition);
+                transform3d = transform3d.TranslatedLocal(Vector3.Down*heightAlongSphere);
+            }
+        }
+        return (caveArrayVertices, caveArrayNormals);
+    }
+    //Todo handle intersections-via radius+distance to line/startPosition/endPosition -make new verts and delete verts/face intersecting?
+    
+    private void ApplyHalfCirqueToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplyCirqueToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplyLayerCakeToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplyShaleCutToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+
+    }
+
+    private void ApplySlopeToVertices(MeshDataTool data, Vector3 weightedNormal)
+    {
+        
+    }
+    // Vector3[] caveArrayMesh = caveArrayVertices.ToArray();
+    //
+
+    //alternative/addon? just use: noise.SetTileable(true);
+    private float GetNoiseYWrapped(int x, int y, FastNoiseLite noise)
+    {
+        // var value = noise.GetNoise2D(x, y);
+        //todo resolve circular with options
+        // Set the noise type, seed, frequency, and other properties
+        // noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+        // noise.SetSeed(42);  // You can set a different seed if desired
+        // noise.SetFrequency(0.1f); // Adjust the frequency based on your needs
+
+        
+
+        // Set the texture dimensions (e.g., 256x256)
+        int width = 256;
+        int height = 256;
+
+        // Wrap the coordinates along the X-axis (periodic tiling)
+        float xWrap = (float)(x % width) / width;  // Normalize x within [0, 1]
+        float yWrap = (float)(y % height) / height;  // Normalize y within [0, 1]
+        
+        // Get the noise value based on the wrapped coordinates
+        float noiseValue = noise.GetNoise2D(xWrap, yWrap);
+        
+        // You can scale or adjust the noise value here if needed (e.g., normalize to [0, 1] range)
+        noiseValue = (noiseValue + 1.0f) * 0.5f;  // Normalize to [0, 1]
+        return noiseValue;
+        // Use noiseValue to create the texture, e.g., store it in an array or display it
+    }
+}
