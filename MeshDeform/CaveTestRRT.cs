@@ -46,7 +46,7 @@ public partial class CaveTestRRT : Node3D
 
     public List<CaveCapsuleInfo> _Lcci;
 
-    [Export] public CylinderMeshGenerator cylinderMeshGenerator;
+    // [Export] public CylinderMeshGenerator cylinderMeshGenerator;
 
 
     // DebugDraw3D.
@@ -356,10 +356,11 @@ public partial class CaveTestRRT : Node3D
         {
             // GD.Print("cci.StartPosition: ", cci.StartPosition, "\ncci.EndPosition: ", cci.EndPosition);
             DrawCapsule(cci.StartPosition, cci.EndPosition, cci.Radius);
-            if(cci.isMainRoom)
-            {
-                cylinderMeshGenerator.CreateCylinderMesh(cci);
-            }
+            // if(cci.isMainRoom)
+            // {
+            //     cylinderMeshGenerator.attachmentNode = (Node3D)GetTree().CurrentScene;
+            //     cylinderMeshGenerator.CreateCylinderMesh(cci);
+            // }
         }
     }
 

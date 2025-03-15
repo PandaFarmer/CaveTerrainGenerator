@@ -33,7 +33,23 @@ public partial class CylinderMeshGenerator : Node3D
         spawnPosition = (cci.StartPosition + cci.EndPosition)/2;
     }
 
-    public void CreateCylinderMesh(CaveCapsuleInfo cci = null, float vertexGranularity = -1f)
+    public struct VertexInfo
+    {
+        public Vector3 vertex;
+        public Vector3 normal;
+        public Vector2 uv;
+        public int index;
+
+        public VertexInfo(Vector3 vertex, Vector3 normal, Vector2 uv, int index)
+        {
+            this.vertex = vertex;
+            this.normal = normal;
+            this.uv = uv;
+            this.index = index;
+        }
+    }
+
+    public List<Vector3I> CreateCylinderMesh(CaveCapsuleInfo cci = null, float vertexGranularity = -1f)
     {
         if(cci != null)
         {
@@ -53,53 +69,88 @@ public partial class CylinderMeshGenerator : Node3D
         List<int> indices = new List<int>();
         List<Vector3> normals = new List<Vector3>();
         List<Vector2> uvs = new List<Vector2>();
+    
 
         int index = 0;
 
         // Create vertices for the top and bottom circles
-        for (int i = 0; i < Segments; i++)
-        {
-            float angle = (float)i / Segments * Mathf.Tau;
-            float x_top = Mathf.Cos(angle) * TopRadius;
-            float z_top = Mathf.Sin(angle) * TopRadius;
+        // for (int i = 0; i < Segments; i++)
+        // {
 
-            // Top circle vertices
-            vertices.Add(new Vector3(x_top, Height / 2, z_top));
-            normals.Add(Vector3.Up);
-            uvs.Add(new Vector2((float)i / Segments, 0));
-            indices.Add(index);
-            index++;
+        //     float angle = (float)i / (float)Segments * Mathf.Tau;
+        //     float x_top = Mathf.Cos(angle) * TopRadius;
+        //     float z_top = Mathf.Sin(angle) * TopRadius;
 
-            float x_bottom = Mathf.Cos(angle) * BottomRadius;
-            float z_bottom = Mathf.Sin(angle) * BottomRadius;
+        //     // Top circle vertices
+        //     vertices.Add(new Vector3(x_top, Height / 2, z_top));
+        //     normals.Add(Vector3.Up);
+        //     uvs.Add(new Vector2((float)i / (float)Segments, 0));
 
-            // Bottom circle vertices
-            vertices.Add(new Vector3(x_bottom, -Height / 2, z_bottom));
-            normals.Add(Vector3.Down);
-            uvs.Add(new Vector2((float)i / Segments, 1));
+        //     indices.Add(index);
+        //     index++;
+
+        //     float x_bottom = Mathf.Cos(angle) * BottomRadius;
+        //     float z_bottom = Mathf.Sin(angle) * BottomRadius;
+
+        //     // Bottom circle vertices
+        //     vertices.Add(new Vector3(x_bottom, -Height / 2, z_bottom));
+        //     normals.Add(Vector3.Down);
+        //     uvs.Add(new Vector2((float)i / (float)Segments, 1));
             
-            indices.Add(index);
-            index++;
-        }
+        //     indices.Add(index);
+        //     index++;
+        // }
 
+        Dictionary<int, Dictionary<int, VertexInfo>> VertsIndicesPerSegment = new Dictionary<int, Dictionary<int, VertexInfo>>();
         // Step 2: Create the cylinder sides (two triangles per segment)
         for (int i = 0; i < Segments; i++)
         {
-            float angle = (float)i / Segments * Mathf.Tau;
+            Dictionary<int, VertexInfo> SegmentVertInfos = new Dictionary<int, VertexInfo>();
+
+            float angle = (float)i / (float)Segments * Mathf.Tau;
             float unit_x = Mathf.Cos(angle);
             float unit_z = Mathf.Sin(angle);
-            float ringCountRatio = (float)Height /Rings;
+            float ringCountRatio = (float)Height /(float)Rings;
 
             for(int j = 0; j < Rings; j++)
             {
                 float radius = Mathf.Lerp(TopRadius, BottomRadius, ringCountRatio);
                 float x = unit_x*radius;
                 float z = unit_z*radius;
+                Vector3 normal = new Vector3(x, 0, z);
+                normal = -normal;
+                Vector3 vertex = new Vector3(x, -Height / 2, z);
                 vertices.Add(new Vector3(x, -Height / 2, z));
-                normals.Add(Vector3.Down);
-                uvs.Add(new Vector2((float)i / Segments, ringCountRatio));
-                indices.Add(index);
+                normals.Add(normal);
+                Vector2 uv = new Vector2((float)i / (float)Segments, ringCountRatio);
+                uvs.Add(uv);
+                VertexInfo vi = new VertexInfo(vertex, normal, uv, index);
+                SegmentVertInfos[j] = vi;
+
                 index++;
+            }
+            VertsIndicesPerSegment[i] = SegmentVertInfos;
+        }
+
+        for(int ring = 0; ring < Rings; ring++)
+        {
+            for(int segment = 0; segment < Segments; segment++)
+            {
+                var segmentInfo = VertsIndicesPerSegment[segment];
+                var nextSegmentInfo = VertsIndicesPerSegment[(segment+1)%Segments];
+
+                int RingSegmentIndex = segmentInfo[ring].index;
+                int NextRingSegmentIndex = segmentInfo[(ring+1)%Rings].index;
+                int RingNextSegmentIndex = nextSegmentInfo[ring].index;
+                int NextRingNextSegmentIndex = nextSegmentInfo[(ring+1)%Rings].index;
+
+                indices.Add(RingSegmentIndex);
+                indices.Add(NextRingSegmentIndex);
+                indices.Add(RingNextSegmentIndex);
+
+                indices.Add(NextRingSegmentIndex);
+                indices.Add(RingNextSegmentIndex);
+                indices.Add(NextRingNextSegmentIndex);
             }
         }
 
@@ -115,7 +166,10 @@ public partial class CylinderMeshGenerator : Node3D
         if (mesh != null)
         {
             // No blendshapes, lods, or compression used.
+
+            //?
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, surfaceArray);
+            // mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Points, surfaceArray);
         }
         // Step 3: Set the arrays in the ArrayMesh
         // mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, new Godot.Collections.Array()
@@ -128,24 +182,23 @@ public partial class CylinderMeshGenerator : Node3D
         // Create the MeshInstance3D and assign the generated mesh
         meshInstance = new MeshInstance3D();
         meshInstance.Position = spawnPosition;
+
+        //?
         // mesh.CreateTrimeshShape();
         mesh.CreateConvexShape();
+
         meshInstance.Mesh = mesh;
-        Material blueprintShader = ResourceLoader.Load<Material>("res://Procedural Generation/Materials/TerrainMaterial.tres");
-        meshInstance.MaterialOverlay = blueprintShader;
+        // Material blueprintShader = ResourceLoader.Load<Material>("res://Procedural Generation/Materials/TerrainMaterial.tres");
+        // meshInstance.MaterialOverlay = blueprintShader;
 
-        meshInstance.CreateTrimeshCollision();
-        GD.Print("Created trimesh collision, adding MeshInstance to Scene at Position: ", meshInstance.Position);
+        Material material = new Material();
+        meshInstance.MaterialOverlay = material;
 
-        if (attachmentNode == null)
-        {
-            AddChild(meshInstance);
-            GD.Print("WARNING: no attachment Node Found in CylinderMeshGenerator");
-            return;
-        }
-
+        // meshInstance.CreateTrimeshCollision();
         
-        attachmentNode.AddChild(meshInstance);
+        meshInstance.CreateMultipleConvexCollisions();
+        GD.Print("Created trimesh collision, adding MeshInstance to Scene at Position: ", meshInstance.Position);
+        
     }
 
     // Function to create the cylinder mesh manually using ArrayMesh
@@ -162,19 +215,19 @@ public partial class CylinderMeshGenerator : Node3D
     //     // Create vertices for the top and bottom circles
     //     for (int i = 0; i < Segments; i++)
     //     {
-    //         float angle = (float)i / Segments * Mathf.Tau;
+    //         float angle = (float)i / (float)Segments * Mathf.Tau;
     //         float x = Mathf.Cos(angle) * Radius;
     //         float z = Mathf.Sin(angle) * Radius;
 
     //         // Top circle vertices
     //         vertices.Add(new Vector3(x, Height / 2, z));
     //         normals.Add(Vector3.Up);
-    //         uvs.Add(new Vector2((float)i / Segments, 0));
+    //         uvs.Add(new Vector2((float)i / (float)Segments, 0));
 
     //         // Bottom circle vertices
     //         vertices.Add(new Vector3(x, -Height / 2, z));
     //         normals.Add(Vector3.Down);
-    //         uvs.Add(new Vector2((float)i / Segments, 1));
+    //         uvs.Add(new Vector2((float)i / (float)Segments, 1));
     //     }
 
     //     // Step 2: Create the cylinder sides (two triangles per segment)
@@ -231,7 +284,7 @@ public partial class CylinderMeshGenerator : Node3D
 
     //     for (int i = 0; i < Segments; i++)
     //     {
-    //         float angle = (float)i / Segments * Mathf.Tau;
+    //         float angle = (float)i / (float)Segments * Mathf.Tau;
     //         float x = Mathf.Cos(angle) * Radius;
     //         float z = Mathf.Sin(angle) * Radius;
 

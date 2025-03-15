@@ -1,6 +1,6 @@
 [gd_scene load_steps=8 format=3 uid="uid://gs0bmsx7geok"]
 
-[ext_resource type="Script" path="res://MeshDeform/CylinderMeshGenerator.cs" id="3_pc4vb"]
+[ext_resource type="PackedScene" uid="uid://ckyv60fee3isb" path="res://common/point_view.tscn" id="3_trqiy"]
 [ext_resource type="PackedScene" uid="uid://cf1pwgl0y0mi6" path="res://Player Controller/Player.tscn" id="5_474xg"]
 [ext_resource type="Script" path="res://MeshDeform/CaveTestRRT.cs" id="6_wxiul"]
 
@@ -48,4 +48,7 @@ MainRoomOrientedUp = PackedInt32Array(1)
 numBranches = 2
 
 [node name="CylinderMeshGenerator" type="Node3D" parent="."]
-script = ExtResource("3_pc4vb")
+
+[node name="PointView" parent="." instance=ExtResource("3_trqiy")]
+
+[node name="GeometryGenerator" type="MeshInstance3D" parent="."]

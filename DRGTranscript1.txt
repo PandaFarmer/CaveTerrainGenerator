@@ -107,3 +107,7 @@ in actuality- generation pathing- linear, branching, branching with reconvergenc
 how to get anastomosing? need different type of lacunarity rules than branching..
 desired behavior- after 1-3? "branch_depth_meander_range" on "branch depth", converge if depth closest to deepest depth
 "depth" vs. "branch depth"
+
+MOAR FEATURES?:
+resolution scaling
+vertex generation along plateu/mesas? or improved get_sample_values

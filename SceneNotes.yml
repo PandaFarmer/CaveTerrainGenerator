@@ -1,0 +1,49 @@
+1 cave that only renders when looking up
+2 cube of many dots
+3 four dots make a corner
+4 single plane with shader normal/vertex set to purple point, renders when camera on purple dot side
+5 half cube with outer shader
+6 half cube with inner shader
+7 cube with tessalated? edges
+8 Point cubes
+9 sphere with noise/deform
+10 sphere with lighting and points
+
+
+Straight Cylinder:
+The Cathedral (thin arrow tip with Cirques in lower half)
+The LayerCake (mario platformer)
+
+Tilted Cylinder?:
+The Crystalline (shear diagonal with plateulike levels of stratifications)
+
+Halved Cylinder any orientation:
+The Sandwich (tunnel with variations in elevation)
+The Slope (Sandwich but diagonal)
+
+Sphere:
+The Runny Egg (sphere with swamp tree runthroughs) ?
+The HotHouse (reverse ulcer with flatter/striated bottom)
+The Ulcer (sphere with bumps)
+
+Flat or Molded Sphere?:
+The Shale (flat elliptical with thin disc platforms)
+
+Natural terrain types of note: 
+Marsh/dried (flat) -> 
+Dunes/mounds -> 
+Karsts (chinese water mountains) -> 
+Mesas/Eroded rock formations ->
+Canyons/Crevasses
+
+Use Subtraction operations for cirques, layer_cakes, and shales
+take two cylinders and subtract one from the other..
+then use the resulting shape, offset its position and voila, cirques/layer_cakes
+for shales, maybe a 2D rhombus with opRevolution
+or try toroid and opTwist for staircase type effect?
+
+TODO:
+Tilted/Arbitrary Cylinder
+
+Shale
+Random Sampling, limited to lower hemi-sphere or base of cylinder
