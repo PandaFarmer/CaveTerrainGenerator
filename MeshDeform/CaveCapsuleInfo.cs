@@ -11,9 +11,11 @@ public class CaveCapsuleInfo
         public int Depth;
         public int BranchDepth;
         public bool isMainRoom;
+        public bool isBranchMerge;
         public List<CaveCapsuleInfo> Parents;
         public List<CaveCapsuleInfo> Children;
-        public CaveCapsuleInfo(int branchId, Vector3 StartPosition, Vector3 EndPosition, float Radius, int Depth, int BranchDepth, CaveCapsuleInfo Parent, bool isMainRoom = false)
+        public CaveCapsuleInfo(int branchId, Vector3 StartPosition, Vector3 EndPosition, float Radius, 
+            int Depth, int BranchDepth, CaveCapsuleInfo Parent, bool isMainRoom = false, bool isBranchMerge=false)
         {
             this. branchId = branchId;
             this.StartPosition = StartPosition;
@@ -21,6 +23,7 @@ public class CaveCapsuleInfo
             this.Radius = Radius;
             this.Depth = Depth;
             this.isMainRoom = isMainRoom;
+            this.isBranchMerge = isBranchMerge;
             Parents = new List<CaveCapsuleInfo>();
 
             Height = (StartPosition - EndPosition).Length();

@@ -1,0 +1,66 @@
+[gd_scene load_steps=10 format=3 uid="uid://crgdvpogal464"]
+
+[ext_resource type="PackedScene" uid="uid://ckyv60fee3isb" path="res://common/point_view.tscn" id="2_rolui"]
+[ext_resource type="Material" uid="uid://cqom2c6a6h8cb" path="res://common/surface_material.tres" id="4_rsjl6"]
+[ext_resource type="Script" path="res://MeshDeform/DrawCylinder.gd" id="5_2hetw"]
+[ext_resource type="PackedScene" uid="uid://cf1pwgl0y0mi6" path="res://Player Controller/Player.tscn" id="5_id3sf"]
+[ext_resource type="Script" path="res://MeshDeform/CaveTestRRT.cs" id="6_pe74r"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_p3y6m"]
+sky_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+ground_horizon_color = Color(0.64625, 0.65575, 0.67075, 1)
+
+[sub_resource type="Sky" id="Sky_solks"]
+sky_material = SubResource("ProceduralSkyMaterial_p3y6m")
+
+[sub_resource type="Environment" id="Environment_3hklu"]
+background_mode = 2
+sky = SubResource("Sky_solks")
+tonemap_mode = 2
+ssao_enabled = true
+glow_enabled = true
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.02
+volumetric_fog_emission = Color(0.301961, 0.756863, 0.913725, 1)
+adjustment_enabled = true
+adjustment_contrast = 1.1
+adjustment_saturation = 1.1
+
+[sub_resource type="Curve" id="Curve_6namb"]
+_data = [Vector2(0.086116, 0.0206052), 0.0, 0.0, 0, 0, Vector2(0.500879, 0.506117), 0.0, 0.0, 0, 0, Vector2(0.98594, 0.493561), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_3hklu")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866023, -0.433016, 0.250001, 0, 0.499998, 0.866027, -0.500003, 0.749999, -0.43301, 0, 0, 0)
+shadow_enabled = true
+
+[node name="Player" parent="." instance=ExtResource("5_id3sf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 47.4349, 0)
+
+[node name="CaveTestRRT" type="Node3D" parent="."]
+script = ExtResource("6_pe74r")
+height_range = Vector2(2, 4)
+depthResetRadius = 0.1
+AngularLacunarityRange = Vector2(0, 1)
+LacunarityCurve = SubResource("Curve_6namb")
+LacunarityIsGeometric = true
+MainRoomOrientedUp = PackedInt32Array(0)
+DrawOn = false
+SurfaceNetsOn = true
+Branching = true
+anastomosing = true
+anastomosingLeafLimit = 8
+numBranches = 50
+localizedAnastomosing = true
+RootPosition = Vector3(0, 10, 0)
+
+[node name="PointView" parent="." instance=ExtResource("2_rolui")]
+
+[node name="GeometrySampler" type="MeshInstance3D" parent="."]
+material_override = ExtResource("4_rsjl6")
+script = ExtResource("5_2hetw")

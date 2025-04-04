@@ -1,0 +1,16 @@
+//Todo define rules for limiting cci crossovers, test/use ClosestPointOnSegment fn
+//need to track number of leaf nodes and limit branching for proper anatomosing?
+//need to count leaves differently.. 
+//need to ensure crossovers don't happen, merge should happen? 
+
+BranchCheck
+//todo need to allow for low alpha 
+branching when depth relative to maxdepth is small?
+also make branching biased to average
+
+Testing:
+ClosestPointOnSegment
+Segment to Segment Distance?
+
+Make sure BranchDepth and Depth are incremented and utilized properly
+

@@ -40,14 +40,12 @@ public partial class CaveTestRRT : Node3D
 
     // [Export]
     // Vector3 Drift = Vector3.Down;
-    [Export] bool DrawOn = true;
-    [Export] bool SurfaceNetsOn = false;
+
     [Export] bool Branching;
     [Export] bool anastomosing;
     [Export] int anastomosingLeafLimit = 5;
     [Export] float anastomosingDepthRatio = .1f;//ratio to allow stub leaves to merge
-    [Export] int searchLimit = 100;
-    [Export] int numBranches = 20;
+    [Export] int numBranches;
     [Export] bool localizedAnastomosing = false;
     [Export] Vector3 RootPosition = Vector3.Up * 70f;
 
@@ -236,7 +234,7 @@ public partial class CaveTestRRT : Node3D
     {
         Vector3 startPosition = Vector3.Zero;
         Vector3 endPosition = Vector3.Zero;
-        if (_Lcci == null)
+        if(_Lcci == null)
         {
             GD.Print("Lcci Null, expected value");
         }
@@ -248,93 +246,160 @@ public partial class CaveTestRRT : Node3D
         return (startPosition / _Lcci.Count, endPosition / _Lcci.Count);
     }
 
-    public List<int> LeafCCIDepths(List<CaveCapsuleInfo> leafCCis)
-    {
-
-        List<int> leafCCIDepths = new List<int>();
-        foreach (var leafCCi in leafCCis)
-        {
-            leafCCIDepths.Add(leafCCi.Depth);
-        }
-        return leafCCIDepths;
-    }
-
-    private float GenerateRandomValueInRange(Vector2 range)
+    public void GenerateCCIAnastomosing(int numBranches, int[] MainRoomSpawnIntervals, int[] MainRoomOrientedUp)//no radius check, todo impl lacunarity, etc
     {
         Random random = new Random();
-        return (float)(random.NextDouble()) * RangeLength(range) + range.X;
-    }
-
-
-
-    private (Vector3 startPosition, Vector3 endPosition) GenerateBaseCCIDims(CaveCapsuleInfo BranchCCI,
-    Vector3 v_rand, float h_rand, Vector3 dirToVRand)
-    {
-        Vector3 startPosition = BranchCCI.EndPosition;//placeholders
-        Vector3 endPosition = BranchCCI.EndPosition;//placeholders
-
-        endPosition += h_rand * dirToVRand;
-
-        return (startPosition, endPosition);
-    }
-
-    public void GenerateCCIAnastomosing(int numBranches, int[] MainRoomSpawnIntervals,
-        int[] MainRoomOrientedUp)//no radius check, todo impl lacunarity, etc
-    {
-        Random random = new Random();
-        int searchCount = 0;
+        // branch_depth_meander_range?
+        //branch
+        //todo add cost for more leaf branching?
         int branch = 0;
-        int spawnBranch = 1;
-        bool isMainRoom = false;
-
-
-        while (branch < numBranches && searchCount < searchLimit)
+        int mainRoomCounter = 0;
+        // int lastMainRoom = 0;//todo replace this with some data defined ruleset on spawn ordering? or just add rules on spawning depth limits
+        while (branch < numBranches)
         {
+            GD.Print("on branch: ", branch);
             List<CaveCapsuleInfo> leafCCis = GetLeaves(_Lcci);
-            List<int> leafCCIDepths = LeafCCIDepths(leafCCis);
-            int spawnLeafIndex;
-            if (leafCCis.Count >= anastomosingLeafLimit)
+            List<int> leafCCiDepths = new List<int>();
+            foreach (var leafCCi in leafCCis)
             {
-                spawnLeafIndex = SelectBucketRandomlyWithBias(leafCCIDepths);
-                spawnBranch = _Lcci.IndexOf(leafCCis[spawnLeafIndex]);
+                leafCCiDepths.Add(leafCCi.Depth);
             }
-            else
+            // int spawnBranch = random.Next(lastMainRoom, _Lcci.Count);
+            int spawnBranch = branch;
+
+            if (Branching)
             {
-                spawnBranch = random.Next(0, _Lcci.Count - 1);
+
+                if (leafCCis.Count >= anastomosingLeafLimit)
+                {
+                    var spawnLeafCCI = SelectBucketRandomlyWithBias(leafCCiDepths);
+                    spawnBranch = _Lcci.IndexOf(leafCCis[spawnLeafCCI]);
+                }
+                else
+                {
+                    spawnBranch = random.Next(0, _Lcci.Count - 1);
+                }
             }
-            CaveCapsuleInfo BranchCCI = _Lcci[spawnBranch];
+
+            var leaves = GetLeaves(_Lcci);
+            spawnBranch = leaves[random.Next(0, leaves.Count - 1)].branchId;
+
 
 
             Vector3 v_rand = GenerateVRand();
-            float r_rand = GenerateRandomValueInRange(radius_range);
-            float h_rand = GenerateRandomValueInRange(height_range);
+
+            float r_rand = (float)(random.NextDouble()) * RangeLength(radius_range) + radius_range.X;
+            float h_rand = (float)(random.NextDouble()) * RangeLength(height_range) + height_range.X;
+
+            // CaveCapsuleInfo BranchCCI = NearestByEndPosition(v_rand, _Lcci);//todo add a cost function for branching? conditional switch 
+            GD.Print("Lcci.Count", _Lcci.Count);
+            GD.Print("branch", branch);
+            CaveCapsuleInfo BranchCCI = _Lcci[spawnBranch];
 
             Vector3 dirToVRand = (v_rand - BranchCCI.EndPosition).Normalized();
-            (Vector3 startPosition, Vector3 endPosition) = GenerateBaseCCIDims(BranchCCI,
-                v_rand, h_rand, dirToVRand);
+            bool isMainRoom = false;
+            // GD.Print()
+            // GD.Print("NearestByEndPosition CaveCapsule: ", BranchCCI.EndPosition);
+
+            bool converge = LacunarityCurve.Sample((float)(random.NextDouble())) > Mathf.Pow(LacunarityAdditiveDecay, BranchCCI.Depth + branch);
+            GD.Print("converge: ", converge);
+            Vector3 startPosition = BranchCCI.EndPosition;
+            Vector3 endPosition = BranchCCI.EndPosition;//placeholder
+            // GD.Print("mainRoomCounter", mainRoomCounter);
+            // GD.Print("MainRoomSpawnIntervals", MainRoomSpawnIntervals);
+
+            //calculate startPosition and endPosition for the case of prev CCI being MainRoom or normalCCI
+            if (MainRoomSpawnIntervals != null &&
+                mainRoomCounter < MainRoomSpawnIntervals.Length &&
+                MainRoomSpawnIntervals[mainRoomCounter] == branch)
+            {
+                GD.Print("Generating Main Room");
+                // Vector3 roomDims = GenerateMainRoomDimensions();
+                float length = ((float)random.NextDouble()) * RangeLength(main_room_length_range) + main_room_length_range.X;
+                float radius = ((float)random.NextDouble()) * RangeLength(main_room_radius_range) + main_room_radius_range.X;
+
+                h_rand = length;
+                r_rand = radius;
+
+                Vector3 MainRoomDir = MainRoomOrientedUp[mainRoomCounter] > 0 ? Vector3.Up * v_rand.Y : new Vector3(v_rand.X, 0, v_rand.Z);
+                MainRoomDir = MainRoomDir.Normalized() * length;
+                Vector3 radiusOffset = MainRoomDir.Normalized() * radius;
+                startPosition = BranchCCI.EndPosition + radiusOffset;
+                endPosition = startPosition + MainRoomDir;
+                // CaveCapsuleInfo mainRoomInfo = new CaveCapsuleInfo(startPosition, endPosition, radius, 1, 
+                //     BranchCCI.BranchDepth+1, BranchCCI, true);
+                // _Lcci.Add(mainRoomInfo);
+                // lastMainRoom = branch;
+                isMainRoom = true;
+            }
+            else if (BranchCCI.isMainRoom)
+            {
+                float main_room_radius_rand = (float)(random.NextDouble()) * RangeLength(main_room_radius_range) + main_room_radius_range.X;
+                if (BranchCCI.StartPosition.Y == BranchCCI.EndPosition.Y)//check orientation
+                {
+                    GD.Print("Sideways Main Cave Orientation found..");
+                    Vector3 BackwardsDir = BranchCCI.EndPosition - BranchCCI.StartPosition;
+                    Vector3 ForwardsDir = BranchCCI.StartPosition - BranchCCI.EndPosition;
+                    Vector3 DirFromStart = v_rand - BranchCCI.StartPosition;
+                    Vector3 DirFromEnd = v_rand - BranchCCI.EndPosition;
+                    if (DirFromStart.Length() <= BranchCCI.Radius && BackwardsDir.AngleTo(DirFromStart) >= Mathf.Pi / 2)
+                    {
+                        GD.Print("Closest to Start");
+                        startPosition = (v_rand - BranchCCI.StartPosition).Normalized() * main_room_radius_rand;
+                        endPosition = startPosition + DirFromStart.Normalized() * h_rand;
+                    }
+                    else if (DirFromEnd.Length() <= BranchCCI.Radius && ForwardsDir.AngleTo(DirFromEnd) >= Mathf.Pi / 2)
+                    {
+                        GD.Print("Closest to End");
+                        startPosition = (v_rand - BranchCCI.EndPosition).Normalized() * main_room_radius_rand;
+                        endPosition = startPosition + DirFromEnd.Normalized() * h_rand;
+                    }
+                    else
+                    {
+                        GD.Print("Closest to Center");
+                        Vector3 cpol = GetClosestPointOnLine(v_rand, BranchCCI.StartPosition, BranchCCI.EndPosition);
+                        Vector3 cpolDir = (v_rand - cpol).Normalized();
+                        startPosition = cpolDir * main_room_radius_rand;
+                        endPosition = startPosition + cpolDir * r_rand;
+                    }
+                }
+                else
+                {
+                    GD.Print("Vertical Main Cave Orientation found..");
+                    startPosition = BranchCCI.EndPosition + dirToVRand.Slide(Vector3.Up).Normalized() * BranchCCI.Radius;
+                    GD.Print("dirToVRand.Slide(Vector3.Up)", dirToVRand.Slide(Vector3.Up));
+                    endPosition = startPosition + dirToVRand * h_rand;
+
+                }
+            }
+            else
+            {
+                endPosition += h_rand * dirToVRand;
+            }
+
 
             //startPosition = BranchCCI.EndPosition can work with MainRoom prevCapsule if mesh intersection is figured out..
             int _BranchDepth = BranchCCI.Children.Count > 0 ? 1 : BranchCCI.BranchDepth + 1;
             CaveCapsuleInfo nextCCI = new CaveCapsuleInfo(branch, startPosition, endPosition, r_rand, BranchCCI.Depth + 1,
                 _BranchDepth, BranchCCI, isMainRoom);
 
-            //need to diregard valid branch check, check for merge first..
-            //
+
             float alpha = nextCCI.BranchDepth;
             (bool validBranch, CaveCapsuleInfo closestMergeCCI, Vector3 mergeV) = BranchCheck(nextCCI, _Lcci, alpha);
             float compareDist = nextCCI.isMainRoom ? height_range.X + height_range.Y : main_room_length_range.X + main_room_length_range.Y;
             compareDist = 2 / 3 * (compareDist + closestMergeCCI.Radius);
-
-            if (alpha >= 1 && alpha >= 1 && (nextCCI.StartPosition - mergeV).Length() <= compareDist)
+            if (validBranch && alpha >= 1 && (nextCCI.StartPosition - mergeV).Length() <= compareDist)//handle merge
             {
-                GD.Print("Merged to Branch");
-                nextCCI.EndPosition = mergeV;
-                nextCCI.BranchDepth = 1;
-                closestMergeCCI.BranchDepth = 1;
-                closestMergeCCI.Parents.Add(nextCCI);
-                nextCCI.Children.Add(closestMergeCCI);
-                validBranch = true;
+                if (closestMergeCCI.StartPosition == mergeV || closestMergeCCI.EndPosition == mergeV)
+                {
+                    nextCCI.EndPosition = mergeV;
+                    nextCCI.BranchDepth = 1;
+                    closestMergeCCI.BranchDepth = 1;
+                    closestMergeCCI.Parents.Add(nextCCI);
+                    nextCCI.Children.Add(closestMergeCCI);
+                }
             }
+
             if (validBranch)
             {
                 GD.Print("Added to Branch");
@@ -342,21 +407,21 @@ public partial class CaveTestRRT : Node3D
                 max_depth = nextCCI.Depth > max_depth ? nextCCI.Depth : max_depth;
                 nextCCI.AddSelfToParentChildren();
                 branch++;
-                // if (nextCCI.isMainRoom)
-                // { mainRoomCounter++; }
+                if (nextCCI.isMainRoom)
+                { mainRoomCounter++; }
                 UpdateCaveCapsuleInfosInRange(nextCCI, _Lcci);
             }
-            searchCount++;
-            // if (nextCCI.isMainRoom && BranchCCI.isMainRoom)
-            // {
-            //     GD.Print("WARNING: edge case with h_rand");
-            // }
+            if (nextCCI.isMainRoom && BranchCCI.isMainRoom)
+            {
+                GD.Print("WARNING: edge case with h_rand");
+            }
+
         }
     }
 
     public void GenerateCCI(int numBranches, int[] MainRoomSpawnIntervals, int[] MainRoomOrientedUp)//no radius check, todo impl lacunarity, etc
     {
-
+        
 
         Random random = new Random();
         // branch_depth_meander_range?
@@ -511,7 +576,7 @@ public partial class CaveTestRRT : Node3D
     {
         var _ClosestPointOnSegment = ClosestPointOnSegment(StartPosition, EndPosition, cci.EndPosition);
         var _SegmentToSegmentDistance = SegmentToSegmentDistance(StartPosition, EndPosition, cci.StartPosition, cci.EndPosition);
-        if (_SegmentToSegmentDistance >= Threshold)
+        if(_SegmentToSegmentDistance >= Threshold)
         {
             cci.EndPosition = _ClosestPointOnSegment;
         }
@@ -620,14 +685,9 @@ public partial class CaveTestRRT : Node3D
         return distance;
     }
 
-    private GodotObject ArbitraryCylinderSurfaceNetGenerator;
-    private bool hasGeneratedSurfaceNets;
-
     public override void _Ready()
     {
         base._Ready();
-        hasGeneratedSurfaceNets = false;
-
         x_range = x_range * rangeMultiplier;
         y_range = y_range * rangeMultiplier;
         z_range = z_range * rangeMultiplier;
@@ -653,46 +713,20 @@ public partial class CaveTestRRT : Node3D
             GenerateCCI(numBranches, MainRoomSpawnIntervals, MainRoomOrientedUp);
         }
 
-        // GeometrySampler = (MeshInstance3D)GetTree().Root.GetNode("GeometrySampler");
     }
 
-    // private void TestClosestPointOnSegment()
-    // {
-
-    // }
-    
-    public override void _Process(double delta)
+    private void TestClosestPointOnSegment()
     {
 
+    }
+    public override void _Process(double delta)
+    {
         base._Process(delta);
-        // var myGDScript = GD.Load<GDScript>("res://MeshDeform/DrawCylinder.gd");
-        // var ArbitraryCylinderSurfaceNetGenerator = (GodotObject)myGDScript.New(); // This is a GodotObject.
-
-        // if (SurfaceNetsOn && !hasGeneratedSurfaceNets)
-        // {
-        //     foreach (CaveCapsuleInfo cci in _Lcci)
-        //     {
-        //         ArbitraryCylinderSurfaceNetGenerator.Set("CENTER", RootPosition);
-        //         ArbitraryCylinderSurfaceNetGenerator.Set("RADIUS", cci.Radius);
-        //         ArbitraryCylinderSurfaceNetGenerator.Set("HEIGHT", cci.Height);
-        //         ArbitraryCylinderSurfaceNetGenerator.Set("a", cci.StartPosition);
-        //         ArbitraryCylinderSurfaceNetGenerator.Set("b", cci.EndPosition);
-        //         ArbitraryCylinderSurfaceNetGenerator.Call("draw");
-        //     }
-        //     hasGeneratedSurfaceNets = true;
-        // }
-
         // GD.Print("Starting Capsule Draws:");
         foreach (CaveCapsuleInfo cci in _Lcci)
         {
             // GD.Print("cci.StartPosition: ", cci.StartPosition, "\ncci.EndPosition: ", cci.EndPosition);
-
-            if (DrawOn)
-            {
-                DrawCapsule(cci.StartPosition, cci.EndPosition, cci.Radius);
-            }
-
-
+            DrawCapsule(cci.StartPosition, cci.EndPosition, cci.Radius);
             // if(cci.isMainRoom)
             // {
             //     cylinderMeshGenerator.attachmentNode = (Node3D)GetTree().CurrentScene;

@@ -49,8 +49,8 @@ geometry_source_geometry_mode = 2
 geometry_source_group_name = &"NavSource"
 
 [sub_resource type="Curve" id="Curve_6namb"]
-_data = [Vector2(0.145709, 0), 0.0, 0.0, 0, 0, Vector2(0.892216, 1), 0.0, 0.0, 0, 0]
-point_count = 2
+_data = [Vector2(0.0702988, 0.0550661), 0.0, 0.0, 0, 0, Vector2(0.717047, 0), 0.0, 0.0, 0, 0, Vector2(0.982425, 1), 0.0, 0.0, 0, 0]
+point_count = 3
 
 [node name="Main" type="Node3D"]
 
@@ -93,7 +93,15 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 47.4349, 0)
 
 [node name="CaveTestRRT" type="Node3D" parent="."]
 script = ExtResource("6_4uq80")
+height_range = Vector2(2, 4)
+depthResetRadius = 0.1
+AngularLacunarityRange = Vector2(0, 1)
 LacunarityCurve = SubResource("Curve_6namb")
+LacunarityIsGeometric = true
 MainRoomOrientedUp = PackedInt32Array(0)
 Branching = true
-numBranches = 30
+anastomosing = true
+anastomosingLeafLimit = 15
+searchLimit = 155
+numBranches = 50
+localizedAnastomosing = true

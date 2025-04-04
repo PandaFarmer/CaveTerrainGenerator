@@ -4,7 +4,7 @@
 [ext_resource type="Environment" uid="uid://btg46q207xigc" path="res://common/environment.tres" id="2_fcyuf"]
 [ext_resource type="PackedScene" uid="uid://cf1pwgl0y0mi6" path="res://Player Controller/Player.tscn" id="3_q0abr"]
 [ext_resource type="Material" uid="uid://cqom2c6a6h8cb" path="res://common/surface_material.tres" id="4_o4e80"]
-[ext_resource type="Script" path="res://SurfaceNets/SphereDeformation.gd" id="5_d4ssd"]
+[ext_resource type="Script" path="res://SurfaceNets/ArbitraryCylinder.gd" id="5_irkav"]
 
 [node name="Figure9" type="Node3D"]
 
@@ -22,4 +22,4 @@ light_energy = 2.0
 
 [node name="GeometrySampler" type="MeshInstance3D" parent="."]
 material_override = ExtResource("4_o4e80")
-script = ExtResource("5_d4ssd")
+script = ExtResource("5_irkav")
